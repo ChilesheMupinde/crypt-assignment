@@ -1,13 +1,18 @@
+import 'dart:convert';
 import 'dart:io';
-
-import 'package:dapp2/services/backend.dart';
+import 'package:dapp4/models/campaign_model.dart';
+import 'package:dapp4/services/backend.dart';
+import 'package:dapp4/utils/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:web3dart/web3dart.dart';
+import 'package:web_socket_channel/io.dart';
 
 class CampaignScreen extends StatefulWidget {
+
   const CampaignScreen({super.key});
 
   @override
@@ -15,30 +20,119 @@ class CampaignScreen extends StatefulWidget {
 }
 
 class _CampaignScreenState extends State<CampaignScreen> {
+  //variables
   Web3Client? Ethclient;
   Client? httpClient;
+  late String Abicode;
+  late Credentials _credentials;
+  late DeployedContract _contract;
+  late EthereumAddress contractaddress;
+  late EthPrivateKey _key;
+  // Campaigncontroller? _campaigncontroller;
+
+
+
+
+  Future<void> getABI()async{
+      String Abifile = await rootBundle
+      .loadString("build/contracts/Crowdfunding.json");
+      var JsonABI = json.decode(Abifile);
+      Abicode = jsonEncode(JsonABI['abi']);
+
+    }
+
+    late EthPrivateKey _creds;
+        Future<void>getCredentials()async{
+      _creds = EthPrivateKey.fromHex(privatekey);
+    }
+
+    late DeployedContract _deployedcontract;
+    late ContractFunction _createcampaign;
+    late ContractFunction _donate;
+    late ContractFunction _withdrawfunder;
+    late ContractFunction _withdrawowner;
+
+
+
+
+    Future<void>getdeployedContracts()async{
+      _deployedcontract = DeployedContract((ContractAbi.fromJson(Abicode, "Crowdfunding")), contractaddress);
+      _createcampaign = _deployedcontract.function("createcampaign");
+      _withdrawowner = _deployedcontract.function("withdrawOwner");
+      _donate = _deployedcontract.function("donate");
+      _withdrawfunder = _deployedcontract.function("withdrawFunder");
+
+    }
+
+  _Init() async{
+
+      httpClient = Client();
+      Ethclient = Web3Client(rpcUrl, httpClient!);
+
+     await getABI();
+    await getCredentials();
+    await getdeployedContracts();
+
+  }
+
+
+
+@override
+  void initState() {
+    _Init();
+    // TODO: implement initState
+    print("initstate");
+    super.initState();
+
+
+  }
+
+
 
   @override
-  void initState() {
-    // TODO: implement initState
-    httpClient = Client();
-    Ethclient = Web3Client(url, httpClient!);
+  void dispose() {
+    // TODO: implement dispose
+    super.dispose();
+    // animationController.dispose() instead of your controller.dispose
   }
  
   @override
-  
 
 
   Widget build(BuildContext context) {
+      //secondvariables
     final ImagePicker _picker = ImagePicker();
    XFile? _image;
+   int j= 7;
   final now = DateTime.now();
   DateTime tommorrow = DateTime(now.year, now.month, now.day + 1);
   final TextEditingController namecontroller = TextEditingController();
   final TextEditingController Description = TextEditingController();
   final TextEditingController Amount = TextEditingController();
   final TextEditingController Titlecontroller = TextEditingController();
+    _key =
+    EthPrivateKey.fromHex("0x26437b9ee64978efc59124cd86410d7f871cf3be2fa521874e6705472e3c27ca");
+    contractaddress = _key.address;
+    Future<EtherAmount> balance = Ethclient!.getBalance(contractaddress);
 
+
+
+
+
+
+    // Noteaddition()async{
+    //   Campaign campaign = Campaign(User: Ethclient!,
+    //       title: Titlecontroller.text,
+    //       Description: Description.text,
+    //       targetAmount: int.parse(Amount.text)
+    //       , deadline: tommorrow);
+    //   await _campaigncontroller!.addContract(campaign);
+    // }
+
+    // addcampaign()async{
+    //    await _campaigncontroller!.
+    //    createCampaign;
+    // }
     Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -195,8 +289,11 @@ class _CampaignScreenState extends State<CampaignScreen> {
                 ),
                 const SizedBox(height: 20,),
                 ElevatedButton(onPressed: (){
-                  Createcampaign(
-                    Ethclient!, Titlecontroller.text, Description.text,int.parse(Amount.text) , tommorrow);
+                  Createcampaign(contractaddress, Titlecontroller.text,
+                      Description.text,
+                      int.parse(Amount.text),
+                      int.parse(tommorrow.day.toString()),
+                      Ethclient!);
                 }, child: Text("Add new Campaign"))
         
               ],
